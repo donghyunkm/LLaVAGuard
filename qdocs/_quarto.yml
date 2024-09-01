@@ -1,0 +1,20 @@
+project:
+  type: website
+  output-dir: ../docs/
+  
+website:
+  title: "LLaVAGuard"
+  navbar:
+    left:
+      - href: https://donghyunkm.github.io/
+        text: Home
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+
+
+editor:
+  render-on-save: true

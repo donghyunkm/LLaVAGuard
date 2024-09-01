@@ -1,0 +1,15 @@
+---
+title: "LLaVAGuard"
+author: "Donghyun Kim"
+bibliography: refs.bib
+
+---
+
+### Introduction
+
+Multimodal large language models (MLLMs) have demonstrated remarkable performance in diverse multimodal and cross-modal tasks by integrating multiple input modalities into a unified representational space.
+However, this input versatility also leads to increased vulnerability to multimodal jailbreak attacks, where adversaries meticulously craft inputs across multiple modalities to make the MLLMs produce harmful or inappropriate responses.
+To ensure the robustness of MLLMs, we propose LLaVAGuard, a novel framework that offers multimodal safety guardrails to any input prompt. 
+The safety guardrails are specifically optimized to minimize the likelihood of generating harmful responses on the LLaVA 1.5 model. 
+
+Extensive experiments show that LLaVAGuard remarkably enhances the robustness of LLaVA 1.5 against jailbreak attacks and also consistently ensures the safety of other MLLMs with the safety guardrails obtained on LLaVA 1.5. Our work paves the way for the robust MLLMs.
