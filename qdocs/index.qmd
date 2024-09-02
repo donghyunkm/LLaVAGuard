@@ -7,9 +7,131 @@ bibliography: refs.bib
 
 ### Introduction
 
-Multimodal large language models (MLLMs) have demonstrated remarkable performance in diverse multimodal and cross-modal tasks by integrating multiple input modalities into a unified representational space.
-However, this input versatility also leads to increased vulnerability to multimodal jailbreak attacks, where adversaries meticulously craft inputs across multiple modalities to make the MLLMs produce harmful or inappropriate responses.
-To ensure the robustness of MLLMs, we propose LLaVAGuard, a novel framework that offers multimodal safety guardrails to any input prompt. 
-The safety guardrails are specifically optimized to minimize the likelihood of generating harmful responses on the LLaVA 1.5 model. 
+Multimodal Large Language Models (MLLMs) such as GPT-4V [@openaiGPT4VisionSystem], Gemini [@reid2024gemini], and LLaVA [@liu2023llava; @liu2023improvedllava] have demonstrated remarkable capabilities in understanding visual and textual inputs and delivering responses in natural language. 
 
-Extensive experiments show that LLaVAGuard remarkably enhances the robustness of LLaVA 1.5 against jailbreak attacks and also consistently ensures the safety of other MLLMs with the safety guardrails obtained on LLaVA 1.5. Our work paves the way for the robust MLLMs.
+While these multimodal capabilities pave the way for novel applications, they also expose new risks [@qi2023visual; @shayegani2023jailbreak; @niu2024jailbreaking], which can be exploited through adversarial prompting in both the visual and textual input. 
+
+For example, adversarial jailbreaks exploit the models' vulnerabilities to bypass their safety guardrails, potentially leading to unauthorized behaviors or misuse. Previous studies in this direction have focused on both unimodal [@zou2023universal; @chao2023jailbreaking] and multimodal LLMs [@shayegani2023jailbreak; @niu2024jailbreaking].
+
+Safeguarding against adversarial exploitation is critical to preempt misuse and ensure secure and trustworthy interactions with these models. 
+
+To ensure the robustness of MLLMs, we propose LLaVAGuard, a novel framework that offers multimodal safety guardrails to any input prompt. The safety guardrails are specifically optimized to minimize the likelihood of generating harmful responses on the LLaVA 1.5 model. Extensive experiments show that LLaVAGuard remarkably enhances the robustness of LLaVA 1.5 against jailbreak attacks. 
+
+I helped develop a method to generate safety guardrails for adversarial images. This article will focus on image safety guardrails.
+
+
+### Method
+
+#### Overview
+
+We consider a simple conversation setup where the user feeds an input prompt to the MLLM, which can contain images, text, or both. The MLLM then produces a response contingent upon the prompt. 
+In this setup, an adversarial attacker aims to exploit any combination of image and text to manipulate the MLLM to generate a harmful response, reveal sensitive information, or include a specific string in the response [@bailey2023image]. 
+We focus on defending against a **jailbreak** attack, which induces the MLLM to generate offensive or inappropriate output via a carefully-crafted prompt. 
+A jailbreaker can utilize completely unrelated image and text pairs, such as white noise paired with a toxic text prompt.
+
+Our goal is to find an optimization-based safety guardrail for each modality (e.g., image and text) against the jailbreak attack on aligned MLLMs.
+
+While manual safety guardrails (e.g., ''*DO NOT INCLUDE HARMFUL CONTENT*'' at the end of the input prompt) or simple safety guardrails (e.g., blurring image or random perturbation of text) can be used as the first line of defense, special safety guardrails optimized to make the MLLM generate less harmful content might be more effective defense.
+
+::: {#fig-results}
+![](llavaguard_overview.png){width=700}
+
+Overview of LLaVAGuard. Multimodal safety guardrails (right) are optimized to minimize the likelihood of generating harmful content sampled from a corpus $\mathcal{C}$ (left-top) on the open-source MLLM model: LLaVA 1.5 (left-bottom). We use projected gradient descent for optimization (middle). We apply the guardrails to any input prompt of MLLMs. 
+:::
+
+
+#### Optimization for Image Safety Guardrail
+
+
+Few-shot prompt learning [@qi2023visual; @lester2021power] carefully constructs an input prompt with few task-related examples for pre-trained LLMs, which can achieve comparable performance to full fine-tuning of the LLMs.
+Inspired by the few-shot learning method, we propose a simple yet effective optimization technique to find the safety guardrail against adversarial images. The core idea is to find an additive noise (i.e., safety guardrail) to a given adversarial image via optimization, such that the noise minimizes the generation probabilities of harmful sentences (e.g., racism or terrorism) given in a small-sized corpus $\mathcal{C}$.   
+
+The harmful sentences act like the few-shot examples to teach the MLLM about the concept of ''jailbreak'' attacks, and the safety guardrail noise optimized on such harmful text would be effective and transferable against potential jailbreak attacks.
+
+Formally, the loss function to find the image safety guardrail (i.e., $x_{img-\text{SG}}$;  $\text{SG =  Safety Guardrail}$) is given as follows.
+$$    
+\DeclareMathOperator*{\argmin}{arg\,min}
+x_{img-\text{SG}} \coloneqq \argmin_{x_{noise}} \sum_{i=1}^{|\mathcal{C}|} {\log p\big(c_i | \{x_{\text{default}},x_{adv}+x_{noise}}\big)\},\hspace{3mm}||x_{noise}||_{\infty} \leq \epsilon,
+$$
+
+where $c_{i}$ indicates the $i$-th harmful sentence in the corpus $\mathcal{C}$, $x_{\text{default}}$ is the default prompt of the MLLM (e.g., system message), $x_{adv}$ indicates an adversarial image,  $x_{noise}$ is an additive noise, $p(y|x)$ indicates the generation probability of text $y$ from the MLLM given an $x$ image, and $\epsilon$ indicates a distance constraint (a hyperparameter; ranged between 0 and 1).
+
+While $x_{adv}$ could be an arbitrary adversarial image or even a set of adversarial images, we chose an \textit{unconstrained attack} image as $x_{adv}$ obtained from the state-of-the-art jailbreak paper [@qi2023visual].
+
+The *unconstrained attack* means the final image generated by the attack algorithm can have any pixel values ranging between 0 and 1 after normalization (0 and 255 before normalization); thus, it is the most effective attack.
+
+The intuition behind the choice of $x_{adv}$  is that the safety guardrail would be optimized against the worst-case scenario and effective against other suboptimal attack scenarios (e.g., constrained attacks). 
+
+The additive noise ($x_{noise}$) in the above equation is continuous, and the loss function is differentiable with respect to  $x_{noise}$. Therefore, we employ the Projected Gradient Descent (PGD) algorithm [@madry2018towards; @croce2019sparse] on the above equation to obtain the image safety guardrail $x_{img-\text{SG}}$.
+
+To make the optimization process scalable, instead of using the whole corpus $\mathcal{C}$, we randomly sample a different subset of $\mathcal{C}$ per epoch in the above equation.
+
+After finding $x_{img-\text{SG}}$, we now purify any adversarial input image via simple addition (e.g., $x_{\text{safe-img}} = x_{\text{input-img}}+x_{img-\text{SG}}$). 
+
+Even if the input image is not adversarial, adding our safety guardrail to the clean image does not destroy the nature of the image as the max norm of $x_{img-\text{SG}}$ is bounded by $\epsilon$. 
+
+::: {.column-margin}
+Code for generating image safety guardrails can be found [here](https://github.com/donghyunkm/LLaVAGuard).
+:::
+
+
+### Experiment Setup
+
+We evaluate LLaVAGuard's defense performance against adversarial input prompts.
+
+#### Data
+
+To obtain benign and adversarial images, We use the COCO 2017 dataset [@lin2014microsoft], following the setup in the visual Q\&A benchmark paper [@schwenk2022okvqa].
+Specifically, we use the validation set of the COCO dataset, which contains 1,000 distinct images along with the corresponding text questions. 
+To generate adversarial images, we use the state-of-the-art visual jailbreak attack paper [@qi2023visual]. We create 26 unconstrained attack images, where one image is used for safety guardrail creation, and the others are used for evaluation. 
+
+Moreover, we also apply constrained attacks with $\epsilon=\frac{64}{255}$ on 25 sampled images from the COCO dataset and obtain the adversarial versions of sampled images for evaluation, where $\epsilon \in [0, 1]$ represents the magnitude of the perturbation for constructing the adversarial image example. 
+
+For the adversarial text, we use the RealToxicityPrompts (RTP) [@gehman2020realtoxicityprompts] dataset. The RTP dataset contains *seemingly innocuous* but adversarial prompts that induce the LLM to generate offensive and inappropriate responses. 
+
+We use 574 harmful strings provided in [@zou2023universal] as a corpus $\mathcal{C}$ for LLaVAGuard.
+
+#### MLLM
+
+We use LLaVA 1.5, the state-of-the-art open-source MLLM in our experiments. 
+
+LLaVA 1.5 [@liu2023improvedllava] effectively bridges the visual encoder CLIP [@radford2021learning] with the language encoder LLaMA-2 [@touvron2023llama] through a novel cross-modal connector.
+
+#### Baseline defenses
+
+We compare several baseline defense methods with LLaVAguard. **BlurKernel** and **Comp-Decomp** are simple image-only defenses that apply a small average convolution kernel and save-and-load the image with lower quality, respectively. Both methods can reduce the adversarial features in the given image but can also alter the nature of the image.
+
+Another image-only defense is **DiffPure** [@nie2022diffusion], which adds a minor noise to the adversarial image (i.e., diffusion process) and purifies it via reverse generative process. The latest text-only defense method is **SmoothLLM** [@robey2023smoothllm]. We modify it to apply random perturbations on multiple copies of input text, pass them to the MLLM along with a given image, and measure the average toxicity of the multiple responses. To the best of our knowledge, there is no defense method providing multimodal safety guardrails for the MLLM.
+
+#### Evaluation metrics
+We use the Perspective API\footnote{\url{https://perspectiveapi.com/}} to systematically identify and quantify abusive comments in the generated response. 
+This API scores each response across seven distinct toxicity attributes, including overall toxicity, severe toxicity, identity attack, insult, threat, profanity, and sexually explicit content. The scoring mechanism is predicated on the perceived negative impact a given text may exert within a conversational setting. 
+For each attribute, we calculate the proportion of generated texts with scores surpassing the threshold of 0.5. A jailbreak attack is successful if the output is classified to any toxicity attributes above.
+
+### Experimental Results
+
+::: {#fig-results}
+![](results.png){width=800}
+
+Effectiveness of LLaVAGuard and baseline defenses against unconstrained adversarial visual attack [@qi2023visual] and RTP [@gehman2020realtoxicityprompts]  adversarial text on LLaVA 1.5, as per Perplexity API and Perplexity. Lower is better for both set of metrics. Optimized and pre-defined text guardrail indicate our proposed and manually-generated safety guardrail, respectively. LLaVA outperforms all baselines as per both metrics. 
+:::
+
+
+We test how effective LLaVAGuard and baseline defenses are against the jailbreak attacks on LLaVA 1.5 model, as per Perplexity API (in percentage) and Perplexity metrics. 
+The above table shows the robustness test result against unconstrained visual attack [@qi2023visual] along with the RTP text prompt [@gehman2020realtoxicityprompts].
+The original LLaVA 1.5 model without any defenses exhibits high vulnerability against the multimodal jailbreak attack with an attack success ratio of over 80\%, which can be detrimental if deployed without any safety measures.
+Regarding baselines, image-only defenses outperform the text-only one. It implies that purifying adversarial features in images is more crucial and impactful for jailbreaking. Nonetheless, their defense performance is still limited due to their unimodality.
+
+Our multimodal defense LLaVAGuard robustifies LLaVA 1.5 the most against the jailbreak attack. The attack success ratio on LLaVA 1.5 with LLaVAGuard is around **25%**, which is almost **55%** and **12%** lower than the original LLaVA 1.5 and the best baseline, respectively.
+
+### Conclusion
+
+In this project, we introduced the first multimodal defense framework LLaVAGuard to robustify multimodal large language models (MLLMs) against jailbreak attacks.
+LLaVAGuard finds optimized multimodal safety guardrails that minimize the generation probabilities of harmful content in a small adversarial corpus. 
+By applying the multimodal safety guardrails to multimodal contents, we purify potential adversarial features in the input and ensure the MLLMs to generate safe and relevant responses. 
+
+We plan to submit this project to conferences in the upcoming months.
+
+\above
+
+Code repository: <https://github.com/donghyunkm/LLaVAGuard>

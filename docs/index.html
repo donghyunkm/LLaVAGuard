@@ -21,7 +21,27 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="site_libs/quarto-nav/quarto-nav.js"></script>
@@ -68,6 +88,35 @@ ul.task-list li input[type="checkbox"] {
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -110,11 +159,15 @@ ul.task-list li input[type="checkbox"] {
    
   <ul>
   <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#method" id="toc-method" class="nav-link" data-scroll-target="#method">Method</a></li>
+  <li><a href="#experiment-setup" id="toc-experiment-setup" class="nav-link" data-scroll-target="#experiment-setup">Experiment Setup</a></li>
+  <li><a href="#experimental-results" id="toc-experimental-results" class="nav-link" data-scroll-target="#experimental-results">Experimental Results</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion">Conclusion</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content">
+<main class="content page-columns page-full" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
@@ -143,13 +196,164 @@ ul.task-list li input[type="checkbox"] {
 
 <section id="introduction" class="level3">
 <h3 class="anchored" data-anchor-id="introduction">Introduction</h3>
-<p>Multimodal large language models (MLLMs) have demonstrated remarkable performance in diverse multimodal and cross-modal tasks by integrating multiple input modalities into a unified representational space. However, this input versatility also leads to increased vulnerability to multimodal jailbreak attacks, where adversaries meticulously craft inputs across multiple modalities to make the MLLMs produce harmful or inappropriate responses. To ensure the robustness of MLLMs, we propose LLaVAGuard, a novel framework that offers multimodal safety guardrails to any input prompt. The safety guardrails are specifically optimized to minimize the likelihood of generating harmful responses on the LLaVA 1.5 model.</p>
-<p>Extensive experiments show that LLaVAGuard remarkably enhances the robustness of LLaVA 1.5 against jailbreak attacks and also consistently ensures the safety of other MLLMs with the safety guardrails obtained on LLaVA 1.5. Our work paves the way for the robust MLLMs.</p>
+<p>Multimodal Large Language Models (MLLMs) such as GPT-4V <span class="citation" data-cites="openaiGPT4VisionSystem">(<a href="#ref-openaiGPT4VisionSystem" role="doc-biblioref">OpenAI 2023</a>)</span>, Gemini <span class="citation" data-cites="reid2024gemini">(<a href="#ref-reid2024gemini" role="doc-biblioref">Reid et al. 2024</a>)</span>, and LLaVA <span class="citation" data-cites="liu2023llava liu2023improvedllava">(<a href="#ref-liu2023llava" role="doc-biblioref">Liu, Li, Wu, et al. 2023</a>; <a href="#ref-liu2023improvedllava" role="doc-biblioref">Liu, Li, Li, et al. 2023</a>)</span> have demonstrated remarkable capabilities in understanding visual and textual inputs and delivering responses in natural language.</p>
+<p>While these multimodal capabilities pave the way for novel applications, they also expose new risks <span class="citation" data-cites="qi2023visual shayegani2023jailbreak niu2024jailbreaking">(<a href="#ref-qi2023visual" role="doc-biblioref">Qi et al. 2023</a>; <a href="#ref-shayegani2023jailbreak" role="doc-biblioref">Shayegani, Dong, and Abu-Ghazaleh 2023</a>; <a href="#ref-niu2024jailbreaking" role="doc-biblioref">Niu et al. 2024</a>)</span>, which can be exploited through adversarial prompting in both the visual and textual input.</p>
+<p>For example, adversarial jailbreaks exploit the models’ vulnerabilities to bypass their safety guardrails, potentially leading to unauthorized behaviors or misuse. Previous studies in this direction have focused on both unimodal <span class="citation" data-cites="zou2023universal chao2023jailbreaking">(<a href="#ref-zou2023universal" role="doc-biblioref">Zou et al. 2023</a>; <a href="#ref-chao2023jailbreaking" role="doc-biblioref">Chao et al. 2023</a>)</span> and multimodal LLMs <span class="citation" data-cites="shayegani2023jailbreak niu2024jailbreaking">(<a href="#ref-shayegani2023jailbreak" role="doc-biblioref">Shayegani, Dong, and Abu-Ghazaleh 2023</a>; <a href="#ref-niu2024jailbreaking" role="doc-biblioref">Niu et al. 2024</a>)</span>.</p>
+<p>Safeguarding against adversarial exploitation is critical to preempt misuse and ensure secure and trustworthy interactions with these models.</p>
+<p>To ensure the robustness of MLLMs, we propose LLaVAGuard, a novel framework that offers multimodal safety guardrails to any input prompt. The safety guardrails are specifically optimized to minimize the likelihood of generating harmful responses on the LLaVA 1.5 model. Extensive experiments show that LLaVAGuard remarkably enhances the robustness of LLaVA 1.5 against jailbreak attacks.</p>
+<p>I helped develop a method to generate safety guardrails for adversarial images. This article will focus on image safety guardrails.</p>
+</section>
+<section id="method" class="level3 page-columns page-full">
+<h3 class="anchored" data-anchor-id="method">Method</h3>
+<section id="overview" class="level4">
+<h4 class="anchored" data-anchor-id="overview">Overview</h4>
+<p>We consider a simple conversation setup where the user feeds an input prompt to the MLLM, which can contain images, text, or both. The MLLM then produces a response contingent upon the prompt. In this setup, an adversarial attacker aims to exploit any combination of image and text to manipulate the MLLM to generate a harmful response, reveal sensitive information, or include a specific string in the response <span class="citation" data-cites="bailey2023image">(<a href="#ref-bailey2023image" role="doc-biblioref">Bailey et al. 2023</a>)</span>. We focus on defending against a <strong>jailbreak</strong> attack, which induces the MLLM to generate offensive or inappropriate output via a carefully-crafted prompt. A jailbreaker can utilize completely unrelated image and text pairs, such as white noise paired with a toxic text prompt.</p>
+<p>Our goal is to find an optimization-based safety guardrail for each modality (e.g., image and text) against the jailbreak attack on aligned MLLMs.</p>
+<p>While manual safety guardrails (e.g., ’‘<em>DO NOT INCLUDE HARMFUL CONTENT</em>’’ at the end of the input prompt) or simple safety guardrails (e.g., blurring image or random perturbation of text) can be used as the first line of defense, special safety guardrails optimized to make the MLLM generate less harmful content might be more effective defense.</p>
+<div id="fig-results" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="llavaguard_overview.png" class="img-fluid figure-img" width="700">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Overview of LLaVAGuard. Multimodal safety guardrails (right) are optimized to minimize the likelihood of generating harmful content sampled from a corpus <span class="math inline">\(\mathcal{C}\)</span> (left-top) on the open-source MLLM model: LLaVA 1.5 (left-bottom). We use projected gradient descent for optimization (middle). We apply the guardrails to any input prompt of MLLMs.
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="optimization-for-image-safety-guardrail" class="level4 page-columns page-full">
+<h4 class="anchored" data-anchor-id="optimization-for-image-safety-guardrail">Optimization for Image Safety Guardrail</h4>
+<p>Few-shot prompt learning <span class="citation" data-cites="qi2023visual lester2021power">(<a href="#ref-qi2023visual" role="doc-biblioref">Qi et al. 2023</a>; <a href="#ref-lester2021power" role="doc-biblioref">Lester, Al-Rfou, and Constant 2021</a>)</span> carefully constructs an input prompt with few task-related examples for pre-trained LLMs, which can achieve comparable performance to full fine-tuning of the LLMs. Inspired by the few-shot learning method, we propose a simple yet effective optimization technique to find the safety guardrail against adversarial images. The core idea is to find an additive noise (i.e., safety guardrail) to a given adversarial image via optimization, such that the noise minimizes the generation probabilities of harmful sentences (e.g., racism or terrorism) given in a small-sized corpus <span class="math inline">\(\mathcal{C}\)</span>.</p>
+<p>The harmful sentences act like the few-shot examples to teach the MLLM about the concept of ‘’jailbreak’’ attacks, and the safety guardrail noise optimized on such harmful text would be effective and transferable against potential jailbreak attacks.</p>
+<p>Formally, the loss function to find the image safety guardrail (i.e., <span class="math inline">\(x_{img-\text{SG}}\)</span>; <span class="math inline">\(\text{SG =  Safety Guardrail}\)</span>) is given as follows. <span class="math display">\[    
+\DeclareMathOperator*{\argmin}{arg\,min}
+x_{img-\text{SG}} \coloneqq \argmin_{x_{noise}} \sum_{i=1}^{|\mathcal{C}|} {\log p\big(c_i | \{x_{\text{default}},x_{adv}+x_{noise}}\big)\},\hspace{3mm}||x_{noise}||_{\infty} \leq \epsilon,
+\]</span></p>
+<p>where <span class="math inline">\(c_{i}\)</span> indicates the <span class="math inline">\(i\)</span>-th harmful sentence in the corpus <span class="math inline">\(\mathcal{C}\)</span>, <span class="math inline">\(x_{\text{default}}\)</span> is the default prompt of the MLLM (e.g., system message), <span class="math inline">\(x_{adv}\)</span> indicates an adversarial image, <span class="math inline">\(x_{noise}\)</span> is an additive noise, <span class="math inline">\(p(y|x)\)</span> indicates the generation probability of text <span class="math inline">\(y\)</span> from the MLLM given an <span class="math inline">\(x\)</span> image, and <span class="math inline">\(\epsilon\)</span> indicates a distance constraint (a hyperparameter; ranged between 0 and 1).</p>
+<p>While <span class="math inline">\(x_{adv}\)</span> could be an arbitrary adversarial image or even a set of adversarial images, we chose an image as <span class="math inline">\(x_{adv}\)</span> obtained from the state-of-the-art jailbreak paper <span class="citation" data-cites="qi2023visual">(<a href="#ref-qi2023visual" role="doc-biblioref">Qi et al. 2023</a>)</span>.</p>
+<p>The <em>unconstrained attack</em> means the final image generated by the attack algorithm can have any pixel values ranging between 0 and 1 after normalization (0 and 255 before normalization); thus, it is the most effective attack.</p>
+<p>The intuition behind the choice of <span class="math inline">\(x_{adv}\)</span> is that the safety guardrail would be optimized against the worst-case scenario and effective against other suboptimal attack scenarios (e.g., constrained attacks).</p>
+<p>The additive noise (<span class="math inline">\(x_{noise}\)</span>) in the above equation is continuous, and the loss function is differentiable with respect to <span class="math inline">\(x_{noise}\)</span>. Therefore, we employ the Projected Gradient Descent (PGD) algorithm <span class="citation" data-cites="madry2018towards croce2019sparse">(<a href="#ref-madry2018towards" role="doc-biblioref">Madry et al. 2018</a>; <a href="#ref-croce2019sparse" role="doc-biblioref">Croce and Hein 2019</a>)</span> on the above equation to obtain the image safety guardrail <span class="math inline">\(x_{img-\text{SG}}\)</span>.</p>
+<p>To make the optimization process scalable, instead of using the whole corpus <span class="math inline">\(\mathcal{C}\)</span>, we randomly sample a different subset of <span class="math inline">\(\mathcal{C}\)</span> per epoch in the above equation.</p>
+<p>After finding <span class="math inline">\(x_{img-\text{SG}}\)</span>, we now purify any adversarial input image via simple addition (e.g., <span class="math inline">\(x_{\text{safe-img}} = x_{\text{input-img}}+x_{img-\text{SG}}\)</span>).</p>
+<p>Even if the input image is not adversarial, adding our safety guardrail to the clean image does not destroy the nature of the image as the max norm of <span class="math inline">\(x_{img-\text{SG}}\)</span> is bounded by <span class="math inline">\(\epsilon\)</span>.</p>
+
+<div class="no-row-height column-margin column-container"><div class="">
+<p>Code for generating image safety guardrails can be found <a href="https://github.com/donghyunkm/LLaVAGuard">here</a>.</p>
+</div></div></section>
+</section>
+<section id="experiment-setup" class="level3">
+<h3 class="anchored" data-anchor-id="experiment-setup">Experiment Setup</h3>
+<p>We evaluate LLaVAGuard’s defense performance against adversarial input prompts.</p>
+<section id="data" class="level4">
+<h4 class="anchored" data-anchor-id="data">Data</h4>
+<p>To obtain benign and adversarial images, We use the COCO 2017 dataset <span class="citation" data-cites="lin2014microsoft">(<a href="#ref-lin2014microsoft" role="doc-biblioref">Lin et al. 2014</a>)</span>, following the setup in the visual Q&amp;A benchmark paper <span class="citation" data-cites="schwenk2022okvqa">(<a href="#ref-schwenk2022okvqa" role="doc-biblioref">Schwenk et al. 2022</a>)</span>. Specifically, we use the validation set of the COCO dataset, which contains 1,000 distinct images along with the corresponding text questions. To generate adversarial images, we use the state-of-the-art visual jailbreak attack paper <span class="citation" data-cites="qi2023visual">(<a href="#ref-qi2023visual" role="doc-biblioref">Qi et al. 2023</a>)</span>. We create 26 unconstrained attack images, where one image is used for safety guardrail creation, and the others are used for evaluation.</p>
+<p>Moreover, we also apply constrained attacks with <span class="math inline">\(\epsilon=\frac{64}{255}\)</span> on 25 sampled images from the COCO dataset and obtain the adversarial versions of sampled images for evaluation, where <span class="math inline">\(\epsilon \in [0, 1]\)</span> represents the magnitude of the perturbation for constructing the adversarial image example.</p>
+<p>For the adversarial text, we use the RealToxicityPrompts (RTP) <span class="citation" data-cites="gehman2020realtoxicityprompts">(<a href="#ref-gehman2020realtoxicityprompts" role="doc-biblioref">Gehman et al. 2020</a>)</span> dataset. The RTP dataset contains <em>seemingly innocuous</em> but adversarial prompts that induce the LLM to generate offensive and inappropriate responses.</p>
+<p>We use 574 harmful strings provided in <span class="citation" data-cites="zou2023universal">(<a href="#ref-zou2023universal" role="doc-biblioref">Zou et al. 2023</a>)</span> as a corpus <span class="math inline">\(\mathcal{C}\)</span> for LLaVAGuard.</p>
+</section>
+<section id="mllm" class="level4">
+<h4 class="anchored" data-anchor-id="mllm">MLLM</h4>
+<p>We use LLaVA 1.5, the state-of-the-art open-source MLLM in our experiments.</p>
+<p>LLaVA 1.5 <span class="citation" data-cites="liu2023improvedllava">(<a href="#ref-liu2023improvedllava" role="doc-biblioref">Liu, Li, Li, et al. 2023</a>)</span> effectively bridges the visual encoder CLIP <span class="citation" data-cites="radford2021learning">(<a href="#ref-radford2021learning" role="doc-biblioref">Radford et al. 2021</a>)</span> with the language encoder LLaMA-2 <span class="citation" data-cites="touvron2023llama">(<a href="#ref-touvron2023llama" role="doc-biblioref">Touvron et al. 2023</a>)</span> through a novel cross-modal connector.</p>
+</section>
+<section id="baseline-defenses" class="level4">
+<h4 class="anchored" data-anchor-id="baseline-defenses">Baseline defenses</h4>
+<p>We compare several baseline defense methods with LLaVAguard. <strong>BlurKernel</strong> and <strong>Comp-Decomp</strong> are simple image-only defenses that apply a small average convolution kernel and save-and-load the image with lower quality, respectively. Both methods can reduce the adversarial features in the given image but can also alter the nature of the image.</p>
+<p>Another image-only defense is <strong>DiffPure</strong> <span class="citation" data-cites="nie2022diffusion">(<a href="#ref-nie2022diffusion" role="doc-biblioref">Nie et al. 2022</a>)</span>, which adds a minor noise to the adversarial image (i.e., diffusion process) and purifies it via reverse generative process. The latest text-only defense method is <strong>SmoothLLM</strong> <span class="citation" data-cites="robey2023smoothllm">(<a href="#ref-robey2023smoothllm" role="doc-biblioref">Robey et al. 2023</a>)</span>. We modify it to apply random perturbations on multiple copies of input text, pass them to the MLLM along with a given image, and measure the average toxicity of the multiple responses. To the best of our knowledge, there is no defense method providing multimodal safety guardrails for the MLLM.</p>
+</section>
+<section id="evaluation-metrics" class="level4">
+<h4 class="anchored" data-anchor-id="evaluation-metrics">Evaluation metrics</h4>
+<p>We use the Perspective API to systematically identify and quantify abusive comments in the generated response. This API scores each response across seven distinct toxicity attributes, including overall toxicity, severe toxicity, identity attack, insult, threat, profanity, and sexually explicit content. The scoring mechanism is predicated on the perceived negative impact a given text may exert within a conversational setting. For each attribute, we calculate the proportion of generated texts with scores surpassing the threshold of 0.5. A jailbreak attack is successful if the output is classified to any toxicity attributes above.</p>
+</section>
+</section>
+<section id="experimental-results" class="level3">
+<h3 class="anchored" data-anchor-id="experimental-results">Experimental Results</h3>
+<div id="fig-results" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="results.png" class="img-fluid figure-img" width="800">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Effectiveness of LLaVAGuard and baseline defenses against unconstrained adversarial visual attack <span class="citation" data-cites="qi2023visual">(<a href="#ref-qi2023visual" role="doc-biblioref">Qi et al. 2023</a>)</span> and RTP <span class="citation" data-cites="gehman2020realtoxicityprompts">(<a href="#ref-gehman2020realtoxicityprompts" role="doc-biblioref">Gehman et al. 2020</a>)</span> adversarial text on LLaVA 1.5, as per Perplexity API and Perplexity. Lower is better for both set of metrics. Optimized and pre-defined text guardrail indicate our proposed and manually-generated safety guardrail, respectively. LLaVA outperforms all baselines as per both metrics.
+</figcaption>
+</figure>
+</div>
+<p>We test how effective LLaVAGuard and baseline defenses are against the jailbreak attacks on LLaVA 1.5 model, as per Perplexity API (in percentage) and Perplexity metrics. The above table shows the robustness test result against unconstrained visual attack <span class="citation" data-cites="qi2023visual">(<a href="#ref-qi2023visual" role="doc-biblioref">Qi et al. 2023</a>)</span> along with the RTP text prompt <span class="citation" data-cites="gehman2020realtoxicityprompts">(<a href="#ref-gehman2020realtoxicityprompts" role="doc-biblioref">Gehman et al. 2020</a>)</span>. The original LLaVA 1.5 model without any defenses exhibits high vulnerability against the multimodal jailbreak attack with an attack success ratio of over 80%, which can be detrimental if deployed without any safety measures. Regarding baselines, image-only defenses outperform the text-only one. It implies that purifying adversarial features in images is more crucial and impactful for jailbreaking. Nonetheless, their defense performance is still limited due to their unimodality.</p>
+<p>Our multimodal defense LLaVAGuard robustifies LLaVA 1.5 the most against the jailbreak attack. The attack success ratio on LLaVA 1.5 with LLaVAGuard is around <strong>25%</strong>, which is almost <strong>55%</strong> and <strong>12%</strong> lower than the original LLaVA 1.5 and the best baseline, respectively.</p>
+</section>
+<section id="conclusion" class="level3">
+<h3 class="anchored" data-anchor-id="conclusion">Conclusion</h3>
+<p>In this project, we introduced the first multimodal defense framework LLaVAGuard to robustify multimodal large language models (MLLMs) against jailbreak attacks. LLaVAGuard finds optimized multimodal safety guardrails that minimize the generation probabilities of harmful content in a small adversarial corpus. By applying the multimodal safety guardrails to multimodal contents, we purify potential adversarial features in the input and ensure the MLLMs to generate safe and relevant responses.</p>
+<p>We plan to submit this project to conferences in the upcoming months.</p>
+<p>Code repository: <a href="https://github.com/donghyunkm/LLaVAGuard" class="uri">https://github.com/donghyunkm/LLaVAGuard</a></p>
+
 
 
 </section>
 
-</main> <!-- /main -->
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-bailey2023image" class="csl-entry" role="listitem">
+Bailey, Luke, Euan Ong, Stuart Russell, and Scott Emmons. 2023. <span>“Image Hijacks: Adversarial Images Can Control Generative Models at Runtime.”</span> <a href="https://arxiv.org/abs/2309.00236">https://arxiv.org/abs/2309.00236</a>.
+</div>
+<div id="ref-chao2023jailbreaking" class="csl-entry" role="listitem">
+Chao, Patrick, Alexander Robey, Edgar Dobriban, Hamed Hassani, George J Pappas, and Eric Wong. 2023. <span>“Jailbreaking Black Box Large Language Models in Twenty Queries.”</span> In <em>R0-FoMo: Robustness of Few-Shot and Zero-Shot Learning in Large Foundation Models</em>.
+</div>
+<div id="ref-croce2019sparse" class="csl-entry" role="listitem">
+Croce, Francesco, and Matthias Hein. 2019. <span>“Sparse and Imperceivable Adversarial Attacks.”</span> In <em>Proceedings of the IEEE/CVF International Conference on Computer Vision</em>, 4724–32.
+</div>
+<div id="ref-gehman2020realtoxicityprompts" class="csl-entry" role="listitem">
+Gehman, Samuel, Suchin Gururangan, Maarten Sap, Yejin Choi, and Noah A Smith. 2020. <span>“RealToxicityPrompts: Evaluating Neural Toxic Degeneration in Language Models.”</span> In <em>Findings of the Association for Computational Linguistics: EMNLP 2020</em>, 3356–69.
+</div>
+<div id="ref-lester2021power" class="csl-entry" role="listitem">
+Lester, Brian, Rami Al-Rfou, and Noah Constant. 2021. <span>“The Power of Scale for Parameter-Efficient Prompt Tuning.”</span> In <em>Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing</em>, 3045–59.
+</div>
+<div id="ref-lin2014microsoft" class="csl-entry" role="listitem">
+Lin, Tsung-Yi, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence Zitnick. 2014. <span>“Microsoft Coco: Common Objects in Context.”</span> In <em>Computer Vision–ECCV 2014: 13th European Conference, Zurich, Switzerland, September 6-12, 2014, Proceedings, Part v 13</em>, 740–55. Springer.
+</div>
+<div id="ref-liu2023improvedllava" class="csl-entry" role="listitem">
+Liu, Haotian, Chunyuan Li, Yuheng Li, and Yong Jae Lee. 2023. <span>“Improved Baselines with Visual Instruction Tuning.”</span> arXiv:2310.03744.
+</div>
+<div id="ref-liu2023llava" class="csl-entry" role="listitem">
+Liu, Haotian, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2023. <span>“Visual Instruction Tuning.”</span> In <em>NeurIPS</em>.
+</div>
+<div id="ref-madry2018towards" class="csl-entry" role="listitem">
+Madry, Aleksander, Aleksandar Makelov, Ludwig Schmidt, Dimitris Tsipras, and Adrian Vladu. 2018. <span>“Towards Deep Learning Models Resistant to Adversarial Attacks.”</span> In <em>International Conference on Learning Representations</em>.
+</div>
+<div id="ref-nie2022diffusion" class="csl-entry" role="listitem">
+Nie, Weili, Brandon Guo, Yujia Huang, Chaowei Xiao, Arash Vahdat, and Animashree Anandkumar. 2022. <span>“Diffusion Models for Adversarial Purification.”</span> In <em>ICML</em>, 16805–27. PMLR.
+</div>
+<div id="ref-niu2024jailbreaking" class="csl-entry" role="listitem">
+Niu, Zhenxing, Haodong Ren, Xinbo Gao, Gang Hua, and Rong Jin. 2024. <span>“Jailbreaking Attack Against Multimodal Large Language Model.”</span> <em>arXiv Preprint arXiv:2402.02309</em>.
+</div>
+<div id="ref-openaiGPT4VisionSystem" class="csl-entry" role="listitem">
+OpenAI. 2023. <span>“<span>G</span><span>P</span><span>T</span>-4<span>V</span>(ision) System Card — Openai.com.”</span> <a href="https://openai.com/research/gpt-4v-system-card" class="uri">https://openai.com/research/gpt-4v-system-card</a>.
+</div>
+<div id="ref-qi2023visual" class="csl-entry" role="listitem">
+Qi, Xiangyu, Kaixuan Huang, Ashwinee Panda, Peter Henderson, Mengdi Wang, and Prateek Mittal. 2023. <span>“Visual Adversarial Examples Jailbreak Aligned Large Language Models.”</span> <a href="https://arxiv.org/abs/2306.13213">https://arxiv.org/abs/2306.13213</a>.
+</div>
+<div id="ref-radford2021learning" class="csl-entry" role="listitem">
+Radford, Alec, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, et al. 2021. <span>“Learning Transferable Visual Models from Natural Language Supervision.”</span> In <em>ICML</em>, 8748–63. PMLR.
+</div>
+<div id="ref-reid2024gemini" class="csl-entry" role="listitem">
+Reid, Machel, Nikolay Savinov, Denis Teplyashin, Dmitry Lepikhin, Timothy Lillicrap, Jean-baptiste Alayrac, Radu Soricut, et al. 2024. <span>“Gemini 1.5: Unlocking Multimodal Understanding Across Millions of Tokens of Context.”</span> <em>arXiv Preprint arXiv:2403.05530</em>.
+</div>
+<div id="ref-robey2023smoothllm" class="csl-entry" role="listitem">
+Robey, Alexander, Eric Wong, Hamed Hassani, and George Pappas. 2023. <span>“SmoothLLM: Defending Large Language Models Against Jailbreaking Attacks.”</span> In <em>R0-FoMo: Robustness of Few-Shot and Zero-Shot Learning in Large Foundation Models</em>.
+</div>
+<div id="ref-schwenk2022okvqa" class="csl-entry" role="listitem">
+Schwenk, Dustin, Apoorv Khandelwal, Christopher Clark, Kenneth Marino, and Roozbeh Mottaghi. 2022. <span>“A-OKVQA: A Benchmark for Visual Question Answering Using World Knowledge.”</span> In <em>European Conference on Computer Vision</em>, 146–62.
+</div>
+<div id="ref-shayegani2023jailbreak" class="csl-entry" role="listitem">
+Shayegani, Erfan, Yue Dong, and Nael Abu-Ghazaleh. 2023. <span>“Jailbreak in Pieces: Compositional Adversarial Attacks on Multi-Modal Language Models.”</span> In <em>ICLR</em>.
+</div>
+<div id="ref-touvron2023llama" class="csl-entry" role="listitem">
+Touvron, Hugo, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov, et al. 2023. <span>“Llama 2: Open Foundation and Fine-Tuned Chat Models.”</span> <em>arXiv:2307.09288</em>.
+</div>
+<div id="ref-zou2023universal" class="csl-entry" role="listitem">
+Zou, Andy, Zifan Wang, J. Zico Kolter, and Matt Fredrikson. 2023. <span>“Universal and Transferable Adversarial Attacks on Aligned Language Models.”</span> <a href="https://arxiv.org/abs/2307.15043">https://arxiv.org/abs/2307.15043</a>.
+</div>
+</div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {
